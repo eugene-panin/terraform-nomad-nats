@@ -1,0 +1,90 @@
+job "${job_name}" {
+  namespace   = "${namespace}"
+  datacenters = ${jsonencode(datacenters)}
+  type        = "service"
+
+  meta {
+    secret_version = "${secret_version}"
+    backup         = "stop"
+  }
+
+  group "nats" {
+    network {
+      mode = "bridge"
+
+      port "client" {
+        static       = ${client_port}
+        to           = 4222
+        host_network = "${internal_network}"
+      }
+
+      port "monitor" {
+        static       = ${monitor_port}
+        to           = 8222
+        host_network = "${internal_network}"
+      }
+    }
+
+    volume "data" {
+      type            = "host"
+      source          = "${volume_name}"
+      access_mode     = "single-node-writer"
+      attachment_mode = "file-system"
+    }
+
+    service {
+      name     = "${job_name}"
+      port     = "client"
+      provider = "consul"
+
+      check {
+        type     = "http"
+        port     = "monitor"
+        path     = "/healthz?js-enabled-only=true"
+        interval = "10s"
+        timeout  = "3s"
+      }
+    }
+
+    task "nats" {
+      driver = "docker"
+
+      config {
+        image    = "${image}"
+        args     = ["-c", "/local/nats.conf"]
+        cap_drop = ["all"]
+      }
+
+      volume_mount {
+        volume      = "data"
+        destination = "/data"
+      }
+
+      vault {}
+
+      template {
+        destination = "secrets/nats.env"
+        env         = true
+        data        = <<-EOT
+          {{ with secret "${secret_path}" }}
+%{ for u in users ~}
+          NATS_${upper(u)}_PASSWORD={{ .Data.data.${u} }}
+%{ endfor ~}
+          {{ end }}
+        EOT
+      }
+
+      template {
+        destination = "local/nats.conf"
+        data        = <<-NATSCONF
+${config}
+        NATSCONF
+      }
+
+      resources {
+        cpu    = ${resources.cpu}
+        memory = ${resources.memory}
+      }
+    }
+  }
+}
