@@ -81,7 +81,7 @@ run "it_joins_the_mesh" {
 
   assert {
     condition = (
-      jsondecode(consul_config_entry.intentions[0].config_json).Sources == [{ Name = "sauron-fetcher", Action = "allow" }, { Name = "sauron-ingest", Action = "allow" }]
+      jsondecode(consul_config_entry.intentions[0].config_json).Sources == [{ Name = "sauron-fetcher", Action = "allow", Precedence = 9, Type = "consul" }, { Name = "sauron-ingest", Action = "allow", Precedence = 9, Type = "consul" }]
       && jsondecode(consul_config_entry.defaults[0].config_json).Protocol == "tcp"
     )
     error_message = "Only the allowed services may connect, and the protocol is tcp."
@@ -94,5 +94,18 @@ run "out_of_the_mesh_by_default" {
   assert {
     condition     = !strcontains(nomad_job.nats.jobspec, "connect {") && length(consul_config_entry.intentions) == 0
     error_message = "Without mesh.enabled there is no sidecar and no intentions."
+  }
+}
+
+run "in_the_mesh_the_port_is_static_only_while_kept_open" {
+  command = apply
+
+  variables {
+    mesh = { enabled = true, allow = ["x"] }
+  }
+
+  assert {
+    condition     = !strcontains(nomad_job.nats.jobspec, "static       = 4222")
+    error_message = "Nomad lets a static port bypass the sidecar: in the mesh the client port must be dynamic unless kept open."
   }
 }
