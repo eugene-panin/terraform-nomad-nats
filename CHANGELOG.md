@@ -10,3 +10,9 @@
   server as `NATS_<USER>_PASSWORD`, and a client reads its own from the same
   secret. The authorization policy is the caller's `config`, so the users and
   their permissions stay with the app that owns them.
+
+## v0.1.1
+
+- The task reserves 256 MB, sized to its use, and may grow to 512 MB:
+  `resources.memory_max` (Nomad memory oversubscription, which the platform
+  turns on). It reserved more than it used before.
