@@ -1,3 +1,4 @@
+mock_provider "consul" {}
 mock_provider "nomad" {}
 mock_provider "random" {}
 mock_provider "vault" {}
@@ -58,5 +59,40 @@ run "memory_is_reserved_by_use_and_may_grow" {
   assert {
     condition     = strcontains(nomad_job.nats.jobspec, "memory     = 256") && strcontains(nomad_job.nats.jobspec, "memory_max = 512")
     error_message = "The task must reserve its usual memory and be allowed to grow to memory_max."
+  }
+}
+
+run "it_joins_the_mesh" {
+  command = apply
+
+  variables {
+    mesh = { enabled = true, allow = ["sauron-fetcher", "sauron-ingest"], keep_open_ports = [4222] }
+  }
+
+  assert {
+    condition = (
+      strcontains(nomad_job.nats.jobspec, "transparent_proxy")
+      && strcontains(nomad_job.nats.jobspec, "exclude_inbound_ports = [\"4222\",\"8222\",\"9102\"]")
+      && strcontains(nomad_job.nats.jobspec, "name     = \"nats-envoy\"")
+      && strcontains(nomad_job.nats.jobspec, "uid                   = \"1337\"")
+    )
+    error_message = "In the mesh NATS must sit behind an Envoy sidecar, keep the given ports and its monitoring open, and expose Envoy's metrics."
+  }
+
+  assert {
+    condition = (
+      jsondecode(consul_config_entry.intentions[0].config_json).Sources == [{ Name = "sauron-fetcher", Action = "allow" }, { Name = "sauron-ingest", Action = "allow" }]
+      && jsondecode(consul_config_entry.defaults[0].config_json).Protocol == "tcp"
+    )
+    error_message = "Only the allowed services may connect, and the protocol is tcp."
+  }
+}
+
+run "out_of_the_mesh_by_default" {
+  command = apply
+
+  assert {
+    condition     = !strcontains(nomad_job.nats.jobspec, "connect {") && length(consul_config_entry.intentions) == 0
+    error_message = "Without mesh.enabled there is no sidecar and no intentions."
   }
 }

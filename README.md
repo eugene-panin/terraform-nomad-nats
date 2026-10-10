@@ -47,3 +47,12 @@ name), `data_volume`.
 make lint
 make module-tests
 ```
+
+## Service mesh
+
+With `mesh.enabled`, the job gets an Envoy sidecar (transparent proxy) and
+Consul config entries: `service-defaults` (`mesh.protocol`, tcp) and
+`service-intentions` allowing only `mesh.allow`. Mesh clients connect to
+`nats://<job_name>.virtual.consul:4222`. While some clients are not in the mesh
+yet, keep `4222` in `mesh.keep_open_ports`; drop it once they all are. The
+monitoring port stays open for the health check.

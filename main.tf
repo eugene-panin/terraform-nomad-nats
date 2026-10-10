@@ -50,9 +50,34 @@ resource "nomad_job" "nats" {
     client_port      = var.client_port
     monitor_port     = var.monitor_port
     resources        = var.resources
+    mesh             = var.mesh
   })
 
   purge_on_destroy = true
 
   depends_on = [vault_kv_secret_v2.users]
+}
+
+# In the mesh: what Consul's L7 features see, and who may connect (intentions;
+# the platform's ACLs deny any other).
+resource "consul_config_entry" "defaults" {
+  count = var.mesh.enabled ? 1 : 0
+
+  kind = "service-defaults"
+  name = var.job_name
+  config_json = jsonencode({
+    Protocol = var.mesh.protocol
+  })
+}
+
+# Only when some service is allowed: Consul takes no intentions without a source,
+# and with none the platform's default deny already stands.
+resource "consul_config_entry" "intentions" {
+  count = var.mesh.enabled && length(var.mesh.allow) > 0 ? 1 : 0
+
+  kind = "service-intentions"
+  name = var.job_name
+  config_json = jsonencode({
+    Sources = [for s in var.mesh.allow : { Name = s, Action = "allow" }]
+  })
 }
