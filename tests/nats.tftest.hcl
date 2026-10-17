@@ -122,3 +122,26 @@ run "envoy_passes_to_the_port_inside_the_group" {
     error_message = "With a dynamic port, Envoy must be told the port inside the group, or it passes the traffic to the host port, where nothing listens."
   }
 }
+
+run "the_service_carries_the_tags_and_meta_given" {
+  command = apply
+
+  variables {
+    service_tags = ["damstack.provides=nats@2"]
+    service_meta = { kind = "example" }
+  }
+
+  assert {
+    condition     = strcontains(nomad_job.nats.jobspec, "tags     = [\"damstack.provides=nats@2\"]") && strcontains(nomad_job.nats.jobspec, "meta {") && strcontains(nomad_job.nats.jobspec, "kind = \"example\"")
+    error_message = "The service must carry the tags and meta given."
+  }
+}
+
+run "the_service_has_no_tags_or_meta_by_default" {
+  command = apply
+
+  assert {
+    condition     = !strcontains(nomad_job.nats.jobspec, "damstack.provides") && length(regexall("\n      meta {", nomad_job.nats.jobspec)) == 0
+    error_message = "Without service_tags and service_meta the service must be as before."
+  }
+}

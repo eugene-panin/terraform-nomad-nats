@@ -102,3 +102,19 @@ variable "mesh" {
     error_message = "mesh.protocol must be tcp, http, http2 or grpc."
   }
 }
+
+variable "service_tags" {
+  description = "Tags of the Consul service clients reach NATS by, besides its own; such as damstack.provides=nats@2, which tells damstack what it provides."
+  type        = list(string)
+  default     = []
+}
+
+variable "service_meta" {
+  description = "Meta of the Consul service clients reach NATS by: what else a client needs to use it."
+  type        = map(string)
+  default     = {}
+  validation {
+    condition     = alltrue([for k in keys(var.service_meta) : can(regex("^[A-Za-z_][A-Za-z0-9_-]*$", k))])
+    error_message = "service_meta keys must be letters, digits, _ and -, starting with a letter or _."
+  }
+}

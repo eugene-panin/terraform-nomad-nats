@@ -35,6 +35,8 @@ JetStream — is your `config`, because that belongs to the app that owns the bu
 | `monitor_port` | `8222` | monitoring/health port |
 | `internal_host_network` | `default` | host network it binds to |
 | `resources` | `{300, 512}` | `{cpu, memory}` |
+| `service_tags` | `[]` | tags of the Consul service, such as `damstack.provides=<capability>` |
+| `service_meta` | `{}` | meta of the Consul service, what else a client needs |
 
 ## Outputs
 
